@@ -1,0 +1,18 @@
+# Secrets: never commit these
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Built by data/build_db.py
+data/*.db
+
+# Editors and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
