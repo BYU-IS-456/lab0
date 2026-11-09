@@ -3,7 +3,7 @@ name = "is456-lab0"
 version = "0.1.0"
 description = "IS 456 Lab 0: your first agent"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.15"
 dependencies = [
     "huggingface-hub>=2.4.0",
     "langchain>=1.4.9",
