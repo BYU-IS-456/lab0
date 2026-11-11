@@ -8,6 +8,8 @@ The whole agent is run_agent() below. Everything after it only prints things.
 
 import argparse
 import json
+import os
+import sys
 import time
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -70,6 +72,21 @@ def run_agent(question: str) -> list:
 
 # --- Printing. You don't need to read below this line. ------------------------
 
+# Color the labels when printing to a terminal, but not when output goes to a file.
+# Set the environment variable NO_COLOR=1 to turn color off.
+USE_COLOR = sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+if USE_COLOR and os.name == "nt":
+    os.system("")  # odd but standard: switches older Windows consoles into color mode
+
+STYLES = {"bold": "1", "dim": "2", "cyan": "36", "yellow": "33", "green": "32", "magenta": "35"}
+
+
+def paint(text: str, *styles: str) -> str:
+    if not USE_COLOR:
+        return text
+    codes = ";".join(STYLES[s] for s in styles)
+    return f"\033[{codes}m{text}\033[0m"
+
 
 class Trace:
     """Prints each step as it happens and adds up the cost."""
@@ -83,7 +100,7 @@ class Trace:
         usage = response.usage_metadata or {}
         self.input_tokens += usage.get("input_tokens", 0)
         self.output_tokens += usage.get("output_tokens", 0)
-        print(f"\n--- step {step} ({usage.get('input_tokens', '?')} tokens in, {usage.get('output_tokens', '?')} out) ---")
+        print("\n" + paint(f"--- step {step} ({usage.get('input_tokens', '?')} tokens in, {usage.get('output_tokens', '?')} out) ---", "dim"))
         print_reply(response)
         self.tool_calls += len(response.tool_calls)
 
@@ -92,43 +109,44 @@ class Trace:
 
     def summary(self) -> None:
         seconds = time.perf_counter() - self.start
-        print(
-            f"\n=== {self.model_calls} model calls | {self.tool_calls} tool calls | "
-            f"{self.input_tokens:,} input tokens | {self.output_tokens:,} output tokens | {seconds:.1f} s ==="
-        )
+        print("\n" + paint(
+            f"=== {self.model_calls} model calls | {self.tool_calls} tool calls | "
+            f"{self.input_tokens:,} input tokens | {self.output_tokens:,} output tokens | {seconds:.1f} s ===",
+            "bold",
+        ))
 
 
 def print_reply(response: AIMessage) -> None:
     thinking = response.additional_kwargs.get("reasoning_content", "").strip()
     if thinking:
-        print(f"[thinking] {thinking}")
+        print(paint(f"[thinking] {thinking}", "dim"))
     for call in response.tool_calls:
-        print(f"[tool call] {call['name']}({json.dumps(call['args'])})")
+        print(paint(f"[tool call] {call['name']}({json.dumps(call['args'])})", "cyan"))
     if response.content.strip():
-        label = "[answer]" if not response.tool_calls else "[says]"
+        label = paint("[answer]", "bold", "green") if not response.tool_calls else paint("[says]", "green")
         print(f"{label} {response.content.strip()}")
 
 
 def print_tool_result(result: str, limit: int = 800) -> None:
     shown = result if len(result) <= limit else result[:limit] + f"\n... ({len(result) - limit} more characters sent to the model)"
-    print(f"[tool result] {shown}")
+    print(f"{paint('[tool result]', 'yellow')} {shown}")
 
 
 def print_messages(messages: list) -> None:
     """Print the conversation exactly as the model last received it."""
-    print("\n" + "=" * 30 + " FULL CONVERSATION " + "=" * 30)
-    print("[tools offered on every call]")
+    print("\n" + paint("=" * 30 + " FULL CONVERSATION " + "=" * 30, "bold"))
+    print(paint("[tools offered on every call]", "magenta"))
     for t in TOOLS:
         print(f"  {t.name}{json.dumps(t.args)}: {t.description}")
     for message in messages:
         role = {"system": "system", "human": "user", "ai": "assistant", "tool": "tool"}[message.type]
-        print(f"\n[{role}]")
+        print("\n" + paint(f"[{role}]", "magenta"))
         if message.type == "ai":
             thinking = message.additional_kwargs.get("reasoning_content", "").strip()
             if thinking:
-                print(f"(thinking) {thinking}")
+                print(paint(f"(thinking) {thinking}", "dim"))
             for call in message.tool_calls:
-                print(f"(tool call) {call['name']}({json.dumps(call['args'])})")
+                print(paint(f"(tool call) {call['name']}({json.dumps(call['args'])})", "cyan"))
         if message.content:
             print(message.content)
 
